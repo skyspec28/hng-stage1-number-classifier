@@ -18,15 +18,15 @@ async def health_check():
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins
+    allow_origins=["*"], 
     allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods
-    allow_headers=["*"],  # Allows all headers
+    allow_methods=["*"],  
+    allow_headers=["*"], 
 )
 
 
 async def get_number_fact(number: int) -> str:
-    """Fetch a math fact (no caching)."""
+    """Fetch a math fact"""
     async with httpx.AsyncClient() as client:
         try:
             response = await client.get(f"http://numbersapi.com/{number}/math")
@@ -90,7 +90,7 @@ async def classify_number(number: Union[int, str]) -> JSONResponse:
         if isinstance(number, str) and not number.isdigit():
             return JSONResponse(status_code=400, content={"number": number, "error": True})
 
-        if not (0 <= num <= 1000000):  # Only positive numbers (including 0)
+        if num < 0:
             return JSONResponse(status_code=400, content={"number": number, "error": True})
 
     except (ValueError, TypeError):
