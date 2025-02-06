@@ -45,8 +45,7 @@ GET /api/classify-number?number={number}
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/number-classifier-api.git
-   cd number-classifier-api
+   git clone https://github.com/skyspec28/hng-stage1-number-classifier.git
    ```
 
 2. Install dependencies:
