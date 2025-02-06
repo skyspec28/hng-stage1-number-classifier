@@ -8,7 +8,8 @@ from typing import List, Dict, Union
 app = FastAPI(title="Number Classification API")
 
 
-
+@app.get("/")
+@app.head("/")
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "message": "Server is running"}
