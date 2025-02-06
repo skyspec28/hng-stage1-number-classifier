@@ -1,113 +1,94 @@
-# main.py
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
+import httpx
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-import httpx
-import math
-from typing import List, Dict, Union
 
-app = FastAPI(title="Number Classification API")
+app = FastAPI()
 
 
-@app.get("/")
-@app.head("/")
-@app.get("/health")
-async def health_check():
-    return {"status": "healthy", "message": "Server is running"}
-
-# Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], 
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],  
-    allow_headers=["*"], 
+    allow_methods=["GET"],
+    allow_headers=["*"]
 )
 
-
-async def get_number_fact(number: int) -> str:
-    """Fetch a math fact"""
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.get(f"http://numbersapi.com/{number}/math")
-            response.raise_for_status()  # Raise HTTPError for bad responses
-            return response.text
-        except httpx.HTTPError as exc:
-            return f"Error fetching fact: {exc}"  # Simplified error message
-        except Exception as e:
-            return f"An unexpected error occurred: {e}"
-        
-
 def is_prime(n: int) -> bool:
-    """Check if a number is prime."""
-    if n < 2:
+    """Check if a number n is prime."""
+    if n <= 1:
         return False
-    for i in range(2, int(math.sqrt(n)) + 1):
+    for i in range(2, int(n ** 0.5) + 1):
         if n % i == 0:
             return False
     return True
 
 def is_perfect(n: int) -> bool:
-    """Check if a number is perfect (sum of proper divisors equals the number)."""
-    if n <= 1:
-        return False
-    divisors_sum = sum(i for i in range(1, n) if n % i == 0)
-    return divisors_sum == n
+    """Check if a number is perfect """
+    total = 0 
+    for i in range(1, n):
+        if n % i == 0:
+            total += i
+    return total == n
 
 def is_armstrong(n: int) -> bool:
     """Check if a number is an Armstrong number."""
-    num_str = str(n)
-    power = len(num_str)
-    return n == sum(int(digit) ** power for digit in num_str)
+    if n < 0:
+        return False
+    digits = [int(d) for d in str(abs(n))]
+    power = len(digits)
+    return sum(d ** power for d in digits) == abs(n)
 
-def get_digit_sum(n: int) -> int:
-    """Calculate the sum of digits in a number."""
-    return sum(int(digit) for digit in str(n))
+def digit_sum(n: int) -> int:
+    
+    return sum(int(digit) for digit in str(abs(n)))
 
-def get_number_properties(n: int) -> List[str]:
-    """Get a list of properties for a number."""
-    properties = []
-    
-    # Check if number is Armstrong
-    if is_armstrong(n):
-        properties.append("armstrong")
-    
-    # Check if odd or even
-    properties.append("odd" if n % 2 else "even")
-    
-    return properties
+async def get_fun_facts(n: int) -> str:
+    """Fetch a fun fact about the number from the Numbers API asynchronously."""
+    async with httpx.AsyncClient() as client:
+        response = await client.get(f"http://numbersapi.com/{n}")
+        if response.status_code == 200:
+            return response.text
+        else:
+            return "No fun fact Available"
 
 @app.get("/api/classify-number")
-async def classify_number(number: Union[int, str]) -> JSONResponse:
-    """Classify a number (edge case handling)."""
-
-    if number is None or number == "":  # Check for None or empty string
-        return JSONResponse(status_code=400, content={"number": number, "error": True})
-
+async def classify_number(number: str):
+    """
+    Classify the provided number by calculating its mathematical properties and fetching a fun fact.
+    Returns a JSON response with the classification or an error if input is invalid.
+    """
     try:
         num = int(number)
+    except ValueError:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "number": number,
+                "error": True
+            }
+        )
 
-        if isinstance(number, str) and not number.isdigit():
-            return JSONResponse(status_code=400, content={"number": number, "error": True})
+    properties = []
 
-        if num < 0:
-            return JSONResponse(status_code=400, content={"number": number, "error": True})
 
-    except (ValueError, TypeError):
-        return JSONResponse(status_code=400, content={"number": number, "error": True})
+    if is_armstrong(num):
+        properties.append("armstrong")
+    
+   
+    if num % 2 == 0:
+        properties.append("even")
+    else:
+        properties.append("odd")
 
-    properties = get_number_properties(num)
-    fun_fact = await get_number_fact(num)
-
-    return JSONResponse(content={
+    
+    fun_fact = await get_fun_facts(num)
+    
+    return {
         "number": num,
         "is_prime": is_prime(num),
         "is_perfect": is_perfect(num),
         "properties": properties,
-        "digit_sum": get_digit_sum(num),
+        "digit_sum": digit_sum(num),
         "fun_fact": fun_fact
-    })
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    }
