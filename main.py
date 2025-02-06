@@ -1,6 +1,7 @@
 # main.py
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 import httpx
 import math
 from typing import List, Dict, Union
@@ -23,11 +24,19 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
+
 async def get_number_fact(number: int) -> str:
-    """Fetch a math fact about the number from the Numbers API."""
+    """Fetch a math fact (no caching)."""
     async with httpx.AsyncClient() as client:
-        response = await client.get(f"http://numbersapi.com/{number}/math")
-        return response.text
+        try:
+            response = await client.get(f"http://numbersapi.com/{number}/math")
+            response.raise_for_status()  # Raise HTTPError for bad responses
+            return response.text
+        except httpx.HTTPError as exc:
+            return f"Error fetching fact: {exc}"  # Simplified error message
+        except Exception as e:
+            return f"An unexpected error occurred: {e}"
+        
 
 def is_prime(n: int) -> bool:
     """Check if a number is prime."""
@@ -69,29 +78,35 @@ def get_number_properties(n: int) -> List[str]:
     return properties
 
 @app.get("/api/classify-number")
-async def classify_number(number: Union[int, str]) -> Dict:
-    """
-    Classify a number and return its properties.
-    """
+async def classify_number(number: Union[int, str]) -> JSONResponse:
+    """Classify a number (edge case handling)."""
+
+    if number is None or number == "":  # Check for None or empty string
+        return JSONResponse(status_code=400, content={"number": number, "error": True})
+
     try:
         num = int(number)
+
+        if isinstance(number, str) and not number.isdigit():
+            return JSONResponse(status_code=400, content={"number": number, "error": True})
+
+        if not (0 <= num <= 1000000):  # Only positive numbers (including 0)
+            return JSONResponse(status_code=400, content={"number": number, "error": True})
+
     except (ValueError, TypeError):
-        return {
-            "number": number,
-            "error": True
-        }
+        return JSONResponse(status_code=400, content={"number": number, "error": True})
 
     properties = get_number_properties(num)
     fun_fact = await get_number_fact(num)
-    
-    return {
+
+    return JSONResponse(content={
         "number": num,
         "is_prime": is_prime(num),
         "is_perfect": is_perfect(num),
         "properties": properties,
         "digit_sum": get_digit_sum(num),
         "fun_fact": fun_fact
-    }
+    })
 
 if __name__ == "__main__":
     import uvicorn
